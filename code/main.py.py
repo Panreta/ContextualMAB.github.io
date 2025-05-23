@@ -1,5 +1,3 @@
-
-
 import numpy as np
 import heapq
 import matplotlib.pyplot as plt
@@ -150,8 +148,7 @@ def single_run_hybrid(m, k, T, reward_star, mu_on,gap_offline, N, mu_hat_off, V1
     # 2. running 
     for t in range(1, T+1):
         print("--------------------------------------------------")
-        save_path = r"C:\Users\Pluviophile\Desktop\graph\5.15\N is upperbound of random\V=0.2,N=30\V"
-        os.makedirs(save_path, exist_ok=True)
+       # save_path as you like
         print(f"t={t}")
         print("online part:")
         reward_online,N_online,mu_hat_on= hybrid(m,k,t,N_online,mu_on,mu_hat_on,N = np.zeros(m),mu_hat_off=np.zeros(m),V = np.zeros(m))
@@ -166,55 +163,23 @@ def single_run_hybrid(m, k, T, reward_star, mu_on,gap_offline, N, mu_hat_off, V1
         cumulative_hybrid += (reward_star - reward_bias)
         gap_hybrid_biased[t - 1] = cumulative_hybrid
         print(f"gap_hybrid:{reward_star - reward_bias}")
-
-        # Plot every 200 steps
       
 
-        if t % 200 == 0:
-            plt.figure()
-
-            def smooth_data(y, window=101, poly=3):
-                # Ensure the window size is odd and not greater than length of data
-                window = min(len(y) // 2 * 2 + 1, window)
-                return savgol_filter(y, window_length=window, polyorder=poly)
-
-            # Apply smoothing
-            smooth_offline = smooth_data(gap_offline[:t])
-            smooth_online = smooth_data(gap_online[:t])
-            smooth_hybrid = smooth_data(gap_hybrid_biased[:t])
-
-            # Plot smoothed curves
-            x = np.arange(1, t + 1)
-            plt.plot(x, smooth_offline, color='green', label='CLCB')
-            plt.plot(x, smooth_online, color='blue', label='CUCB')
-            plt.plot(x, smooth_hybrid, color='crimson', label='H-CUCB')
-
-            plt.fill_between(range(1,T+1),
-                 mean_gap_online - std_gap_online,
-                 mean_gap_online + std_gap_online,
-                 color='blue',
-                 alpha=0.3,
-                 label='±1 Std Dev')
-    
-            plt.fill_between(range(1,T+1),
-                        mean_gap_hybrid - std_gap_hybrid,
-                        mean_gap_hybrid + std_gap_hybrid,
-                        color='red',
-                        alpha=0.3,
-                        label='±1 Std Dev')
+        # if t % 200 == 0:
+        #     plt.figure()
 
 
-            plt.xlim(1, t)
-            plt.ylim(0, 50)
-            plt.xlabel("Time Steps (t)")
-            plt.ylabel("Cumulative Regret")
-            plt.title(f"V={V1[0]}, N={200}")
-            plt.legend(loc='upper left', frameon=True, shadow=True)
-            plt.grid(True, linestyle='--', alpha=0.7)
+        #     plt.xlim(1, t)
+        #     plt.ylim(0, 50)
+        #     plt.xlabel("Time Steps (t)")
+        #     plt.ylabel("Cumulative Regret")
+        #     plt.title(f"V={V1[0]}, N={200}")
+        #     plt.legend(loc='upper left', frameon=True, shadow=True)
+        #     plt.grid(True, linestyle='--', alpha=0.7)
 
-            file_name = f"graph_t{t}.pdf"
-            plt.savefig(os.path.join(save_path, file_name), format='pdf')
-            plt.close()
+        #     file_name = f"graph_t{t}.pdf"
+        #     plt.savefig(os.path.join(save_path, file_name), format='pdf')
+        #     plt.close()
 
 
     return gap_online , gap_hybrid_biased
@@ -231,12 +196,10 @@ if __name__ == "__main__":
     num_trials = 20
     bias = 0
     mu_on = np.linspace(0,0.5,m)
-    # mu_on = np.random.uniform(0.3,0.7,m) # Adjust : 0 can be changed to 0.5,0.6
-    # mu_on[0] = 0.699
 
     print(f"mu_on:{mu_on}")
 
-    # # bias generation
+    # # bias generation, if bias choose this part
     # while True:
     #     V = [bias] * m # Bias bound
     #     count = 0
@@ -265,7 +228,7 @@ if __name__ == "__main__":
     ## 3.1 offline
     reward_off = 0
     reward = []
-    num_each_arm = 50
+    num_each_arm = 200
     reward_off,N,mu_hat_off = MeanRewardOff(m,mu_off,k,mu_on,num_each_arm,off_turn= 1)
     print(f"reward_off:{reward_off}")
 
@@ -313,16 +276,16 @@ if __name__ == "__main__":
     plt.plot(mean_gap_hybrid, color='red', label='Hybrid biased Algorithm')
 
     plt.fill_between(range(1,T+1),
-                 mean_gap_online - std_gap_online,
-                 mean_gap_online + std_gap_online,
+                 mean_gap_online - std_gap_online/np.sqrt(num_trials),
+                 mean_gap_online + std_gap_online/np.sqrt(num_trials),
                  color='blue',
                  alpha=0.3,
                  label='±1 Std Dev')
     
     plt.fill_between(range(1,T+1),
-                 mean_gap_hybrid - std_gap_hybrid,
-                 mean_gap_hybrid + std_gap_hybrid,
-                 color='red',
+                 mean_gap_online - std_gap_online/np.sqrt(num_trials),
+                 mean_gap_online + std_gap_online/np.sqrt(num_trials),
+                 color='blue',
                  alpha=0.3,
                  label='±1 Std Dev')
 

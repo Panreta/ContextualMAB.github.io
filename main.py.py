@@ -1,5 +1,3 @@
-
-# python  Wish_The_Last_One.py
 import numpy as np
 import heapq
 import matplotlib.pyplot as plt
@@ -48,7 +46,7 @@ def trigger(super_arm,mu_on):
 def offline(m,mu_off,num_each_arm):
     delta = 0.1
     sample = np.zeros(m)
-    log_CLCB = np.log(np.divide(2*m*num_each_arm ,delta))# n in paper: 一个臂拉取多少次，fix
+    log_CLCB = np.log(np.divide(2*m*num_each_arm ,delta))
     mu_hat_off = np.zeros(m)
     LCB = np.zeros(m)
     choose = [np.random.randint(10, num_each_arm + 1) for i in range(m)]
@@ -66,8 +64,10 @@ def MeanRewardOff(m, mu_off, k, mu_on,num_each_arm,off_turn):
     
     for t in range(off_turn):
         N, mu_hat_off ,LCB= offline(m, mu_off,num_each_arm)
+        print(f"mu_hat_off:{mu_hat_off}")
         super_arm = oracle_select(mu_hat_off, k)
-
+        print(f"super_arm_off:{super_arm}")
+        print(f"super_arm:{super_arm}")
         reward = expect_reward(mu_on, super_arm)
         # print(f"reward:{reward}")
         
@@ -75,7 +75,7 @@ def MeanRewardOff(m, mu_off, k, mu_on,num_each_arm,off_turn):
         all_N.append(N)
         all_mu_hat_off.append(mu_hat_off)
     
-    # 计算均值
+
     mean_reward = np.mean(all_rewards)
     mean_N = np.mean(all_N, axis=0)  # axis = 0: do summation to row vector
     mean_mu_hat_off = np.mean(all_mu_hat_off, axis=0)
@@ -104,10 +104,12 @@ def hybrid(m,k,t,N_online,mu_on,mu_hat_on,N,mu_hat_off,V):
             
     # ucb = np.minimum(ucb_online, ucb_hybrid)
     ucb = np.minimum(np.minimum(ucb_online, ucb_hybrid), np.ones(m))
+    print(f"ucb={ucb}")
 
     ## Trigger part
     # super_arm = oracle_select(ucb,k)
     super_arm = oracle_select(ucb,k)
+    print(f"hybrid super_arm:{super_arm}")
 
     reward_online = expect_reward(mu_on,super_arm)
 
@@ -132,9 +134,6 @@ def hybrid(m,k,t,N_online,mu_on,mu_hat_on,N,mu_hat_off,V):
 
 def single_run_hybrid(m, k, T, reward_star, mu_on,gap_offline, N, mu_hat_off, V1):
     import os
-    from scipy.interpolate import make_interp_spline
-    from scipy.signal import savgol_filter
-
     # 1.initial
     N_online,mu_hat_on = np.zeros(m),np.zeros(m)
     N_biased,mu_hat_biased  = np.zeros(m),np.zeros(m)
@@ -146,14 +145,39 @@ def single_run_hybrid(m, k, T, reward_star, mu_on,gap_offline, N, mu_hat_off, V1
     # 2. running 
     for t in range(1, T+1):
         print("--------------------------------------------------")
+       # save_path as you like
         print(f"t={t}")
+        print("online part:")
         reward_online,N_online,mu_hat_on= hybrid(m,k,t,N_online,mu_on,mu_hat_on,N = np.zeros(m),mu_hat_off=np.zeros(m),V = np.zeros(m))
         cumulative_online += (reward_star - reward_online)
+        print(f"gap_on:{reward_star - reward_online}")
         gap_online[t - 1] = cumulative_online
         
+        print("##########################--------------------------")
+        print("biased part:")
         reward_bias,N_biased,mu_hat_biased= hybrid(m,k,t,N_biased,mu_on,mu_hat_biased,N,mu_hat_off,V1)
+        print(f"reward_bias:{reward_bias}")
         cumulative_hybrid += (reward_star - reward_bias)
         gap_hybrid_biased[t - 1] = cumulative_hybrid
+        print(f"gap_hybrid:{reward_star - reward_bias}")
+      
+
+        # if t % 200 == 0:
+        #     plt.figure()
+
+
+        #     plt.xlim(1, t)
+        #     plt.ylim(0, 50)
+        #     plt.xlabel("Time Steps (t)")
+        #     plt.ylabel("Cumulative Regret")
+        #     plt.title(f"V={V1[0]}, N={200}")
+        #     plt.legend(loc='upper left', frameon=True, shadow=True)
+        #     plt.grid(True, linestyle='--', alpha=0.7)
+
+        #     file_name = f"graph_t{t}.pdf"
+        #     plt.savefig(os.path.join(save_path, file_name), format='pdf')
+        #     plt.close()
+
 
     return gap_online , gap_hybrid_biased
 
@@ -163,36 +187,38 @@ from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import Pool, cpu_count
 if __name__ == "__main__":
     clear_variables()
-    import os
     print("Clear up")
     m = 10
     k = 5
-    num_trials = 20
+    num_trials = 5
     bias = 0
     mu_on = np.linspace(0,0.5,m)
+
     print(f"mu_on:{mu_on}")
 
-    # bias generation
-    while True:
-        V = [bias] * m # Bias bound
-        count = 0
-        for i in range(m):
-            if random.random() < 0.5:
-                V[i] = -V[i]
-                count += 1
-        if m / 2 - 5 <= count <= m / 2 + 5:
-            break
+    # # bias generation, if bias choose this part
+    # while True:
+    #     V = [bias] * m # Bias bound
+    #     count = 0
+    #     for i in range(m):
+    #         if random.random() < 0.5:
+    #             V[i] = -V[i]
+    #             count += 1
+    #     if m / 2 - 5 <= count <= m / 2 + 5:
+    #         break
 
 
     # mu_off =  mu_on + V # Adjust : may fix
-    mu_off =  mu_on 
+    mu_off =  mu_on # Adjust : may fix
 
     V1 = [bias] * m
 
 
     # 2.Find the oracle 
     super_arm_oracle = oracle_select(mu_on,k)
+    print(f"super_arm_oracle:{super_arm_oracle}")
     reward_star = expect_reward(mu_on,super_arm_oracle)
+    print(f"reward_star:{reward_star}")
 
 
     # 3. do offline, online, hybrid-unbiased, hybrid-biased
@@ -201,8 +227,9 @@ if __name__ == "__main__":
     reward = []
     num_each_arm = 200
     reward_off,N,mu_hat_off = MeanRewardOff(m,mu_off,k,mu_on,num_each_arm,off_turn= 1)
-    print(f"gap_off:{reward_star - reward_off}")
+    print(f"reward_off:{reward_off}")
 
+    print(f"gap_off:{reward_star - reward_off }")
     T = int(input("T:"))
 
     gap_offline = (reward_star - reward_off ) * range(1,T+1)
@@ -218,7 +245,6 @@ if __name__ == "__main__":
 
     tasks = [args] * num_trials
     num_processes = cpu_count() - 1 
-
     # run trials in parallel
     print("Starting parallel processing...")
 
@@ -241,28 +267,29 @@ if __name__ == "__main__":
 
 
     # 4.Plot
-    plt.plot(gap_offline, color='green', label='CLCB')
-    print("CLCB")
-    plt.plot(mean_gap_online, color='blue', label='CUCB')
-    plt.plot(mean_gap_hybrid, color='red', label='H-CUCB')
+    plt.plot(gap_offline, color='green', label='Offline Algorithm')
+    print("There is offline part0")
+    plt.plot(mean_gap_online, color='blue', label='Online Algorithm')
+    plt.plot(mean_gap_hybrid, color='red', label='Hybrid biased Algorithm')
 
     plt.fill_between(range(1,T+1),
                  mean_gap_online - std_gap_online/np.sqrt(num_trials),
                  mean_gap_online + std_gap_online/np.sqrt(num_trials),
                  color='blue',
-                 alpha=0.3
-                 )
+                 alpha=0.3,
+                 label='±1 Std Dev')
     
     plt.fill_between(range(1,T+1),
-                 mean_gap_hybrid - std_gap_hybrid/np.sqrt(num_trials),
-                 mean_gap_hybrid + std_gap_hybrid/np.sqrt(num_trials),
-                 color='red',
-                 alpha=0.3)
+                 mean_gap_online - std_gap_online/np.sqrt(num_trials),
+                 mean_gap_online + std_gap_online/np.sqrt(num_trials),
+                 color='blue',
+                 alpha=0.3,
+                 label='±1 Std Dev')
 
 
     plt.xlim(1,T)
-    plt.ylim(0,300)
-    plt.xlabel("Time Step (t)")
+    plt.ylim(0,50)
+    plt.xlabel("Time Steps (t)")
     plt.ylabel("Cumulative Regret")
     plt.title(f"V={bias},N={num_each_arm}")
 
