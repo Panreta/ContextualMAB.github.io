@@ -49,7 +49,7 @@ def offline(m,mu_off,num_each_arm):
     log_CLCB = np.log(np.divide(2*m*num_each_arm ,delta))
     mu_hat_off = np.zeros(m)
     LCB = np.zeros(m)
-    choose = [np.random.randint(30, num_each_arm + 1) for i in range(m)]
+    choose = [np.random.randint(10, num_each_arm + 1) for i in range(m)]
     for i in range(m):
         sample[i] = np.random.binomial(choose[i],mu_off[i])
         mu_hat_off[i] = np.divide(sample[i],num_each_arm)
@@ -64,8 +64,12 @@ def MeanRewardOff(m, mu_off, k, mu_on,num_each_arm,off_turn):
     
     for t in range(off_turn):
         N, mu_hat_off ,LCB= offline(m, mu_off,num_each_arm)
-        super_arm = oracle_select(LCB, k)
+        print(f"mu_hat_off:{mu_hat_off}")
+        super_arm = oracle_select(mu_hat_off, k)
+        print(f"super_arm_off:{super_arm}")
+        print(f"super_arm:{super_arm}")
         reward = expect_reward(mu_on, super_arm)
+        # print(f"reward:{reward}")
         
         all_rewards.append(reward)
         all_N.append(N)
@@ -100,10 +104,12 @@ def hybrid(m,k,t,N_online,mu_on,mu_hat_on,N,mu_hat_off,V):
             
     # ucb = np.minimum(ucb_online, ucb_hybrid)
     ucb = np.minimum(np.minimum(ucb_online, ucb_hybrid), np.ones(m))
+    print(f"ucb={ucb}")
 
     ## Trigger part
     # super_arm = oracle_select(ucb,k)
     super_arm = oracle_select(ucb,k)
+    print(f"hybrid super_arm:{super_arm}")
 
     reward_online = expect_reward(mu_on,super_arm)
 
@@ -126,7 +132,7 @@ def hybrid(m,k,t,N_online,mu_on,mu_hat_on,N,mu_hat_off,V):
             mu_hat_on[arm] += np.divide(0 - mu_hat_on[arm],N_online[arm])
     return reward_online,N_online,mu_hat_on
 
-def single_run(m, k, T, num_each_arm, reward_star, mu_off,mu_on, V1):
+def single_run(m, k, T, reward_star, mu_off,mu_on, V1):
     import os
     # 1.initial
     N_online,mu_hat_on = np.zeros(m),np.zeros(m)
@@ -139,20 +145,31 @@ def single_run(m, k, T, num_each_arm, reward_star, mu_off,mu_on, V1):
     # 2 offline, online, hybrid
     # N = [num_each_arm] * m
 
+    print("offline part:")
+    num_each_arm = 200 # also can choose to be 10,50 in the description of paper
     reward_off,N,mu_hat_off = MeanRewardOff(m,mu_off,k,mu_on,num_each_arm,off_turn= 1)
     gap_offline = (reward_star - reward_off) * range(1,T + 1)
+    print(f"gap_offline:{gap_offline}")
     
     # 2. running 
     for t in range(1, T+1):
+        print("--------------------------------------------------")
        # save_path as you like
+        print(f"t={t}")
 
+        print("online part:")
         reward_online,N_online,mu_hat_on= hybrid(m,k,t,N_online,mu_on,mu_hat_on,N = np.zeros(m),mu_hat_off=np.zeros(m),V = np.zeros(m))
         cumulative_online += (reward_star - reward_online)
+        print(f"gap_on:{reward_star - reward_online}")
         gap_online[t - 1] = cumulative_online
         
+        print("##########################--------------------------")
+        print("biased part:")
         reward_bias,N_biased,mu_hat_biased= hybrid(m,k,t,N_biased,mu_on,mu_hat_biased,N,mu_hat_off,V1)
+        print(f"reward_bias:{reward_bias}")
         cumulative_hybrid += (reward_star - reward_bias)
         gap_hybrid[t - 1] = cumulative_hybrid
+        print(f"gap_hybrid:{reward_star - reward_bias}")
     return gap_offline, gap_online , gap_hybrid
 
 
@@ -167,9 +184,9 @@ if __name__ == "__main__":
     num_trials = 5
     bias = 0
     mu_on = np.linspace(0,0.5,m)
-    T = 20000 # can be changed as you like 
-    num_each_arm = 50# also can choose to be 10,50 in the description of paper
+    T = 8000 # can be changed as you like 
 
+    print(f"mu_on:{mu_on}")
 
     # # bias generation, if bias choose this part
     # while True:
@@ -191,12 +208,15 @@ if __name__ == "__main__":
 
     # 2.Find the oracle 
     super_arm_oracle = oracle_select(mu_on,k)
+    print(f"super_arm_oracle:{super_arm_oracle}")
     reward_star = expect_reward(mu_on,super_arm_oracle)
+    print(f"reward_star:{reward_star}")
 
 
     # 3. do offline, online, hybrid-unbiased, hybrid-biased
+    ## 3.1 offline
 
-    args = (m,k,T,num_each_arm,reward_star,mu_off,mu_on,V1)
+    args = (m,k,T,reward_star,mu_off,mu_on,V1)
 
     tasks = [args] * num_trials
     num_processes = cpu_count() - 1 
@@ -226,6 +246,7 @@ if __name__ == "__main__":
 
     # 4.Plot
     plt.plot(mean_gap_offline, color='green', label='Offline Algorithm')
+    print("There is offline part0")
     plt.plot(mean_gap_online, color='blue', label='Online Algorithm')
     plt.plot(mean_gap_hybrid, color='red', label='Hybrid biased Algorithm')
 
