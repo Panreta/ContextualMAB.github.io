@@ -43,13 +43,13 @@ def trigger(super_arm,mu_on):
             return mu_update,observed_arm
     return mu_update,observed_arm # if 0, it is no arm searched out
 
-def offline(m,mu_off,num_each_arm):
+def offline(m,mu_off,lower_bound,num_each_arm):
     delta = 0.1
     sample = np.zeros(m)
     log_CLCB = np.log(np.divide(2*m*num_each_arm ,delta))
     mu_hat_off = np.zeros(m)
     LCB = np.zeros(m)
-    choose = [np.random.randint(30, num_each_arm + 1) for i in range(m)]
+    choose = [np.random.randint(lower_bound, num_each_arm + 1) for i in range(m)]
     for i in range(m):
         sample[i] = np.random.binomial(choose[i],mu_off[i])
         mu_hat_off[i] = np.divide(sample[i],num_each_arm)
@@ -57,13 +57,13 @@ def offline(m,mu_off,num_each_arm):
         
     return choose,mu_hat_off, LCB
 
-def MeanRewardOff(m, mu_off, k, mu_on,num_each_arm,off_turn):
+def MeanRewardOff(m, mu_off, k, mu_on,lower_bound,num_each_arm,off_turn):
     all_rewards = []
     all_N = []         
     all_mu_hat_off = []
     
     for t in range(off_turn):
-        N, mu_hat_off ,LCB= offline(m, mu_off,num_each_arm)
+        N, mu_hat_off ,LCB= offline(m, mu_off,lower_bound,num_each_arm)
         super_arm = oracle_select(LCB, k)
         reward = expect_reward(mu_on, super_arm)
         
@@ -126,7 +126,7 @@ def hybrid(m,k,t,N_online,mu_on,mu_hat_on,N,mu_hat_off,V):
             mu_hat_on[arm] += np.divide(0 - mu_hat_on[arm],N_online[arm])
     return reward_online,N_online,mu_hat_on
 
-def single_run(m, k, T, num_each_arm, reward_star, mu_off,mu_on, V1):
+def single_run(m, k, T, lower_bound,num_each_arm, reward_star, mu_off,mu_on, V1):
     import os
     # 1.initial
     N_online,mu_hat_on = np.zeros(m),np.zeros(m)
@@ -139,7 +139,7 @@ def single_run(m, k, T, num_each_arm, reward_star, mu_off,mu_on, V1):
     # 2 offline, online, hybrid
     # N = [num_each_arm] * m
 
-    reward_off,N,mu_hat_off = MeanRewardOff(m,mu_off,k,mu_on,num_each_arm,off_turn= 1)
+    reward_off,N,mu_hat_off = MeanRewardOff(m,mu_off,k,mu_on,lower_bound,num_each_arm,off_turn= 1)
     gap_offline = (reward_star - reward_off) * range(1,T + 1)
     
     # 2. running 
@@ -155,38 +155,55 @@ def single_run(m, k, T, num_each_arm, reward_star, mu_off,mu_on, V1):
         gap_hybrid[t - 1] = cumulative_hybrid
     return gap_offline, gap_online , gap_hybrid
 
-
-    # 1. setting
-from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import Pool, cpu_count
-if __name__ == "__main__":
+def main():
     clear_variables()
     print("Clear up")
+    import os
     m = 10
     k = 5
-    num_trials = 5
-    bias = 0
-    mu_on = np.linspace(0,0.5,m)
-    T = 20000 # can be changed as you like 
-    num_each_arm = 50# also can choose to be 10,50 in the description of paper
+    num_trials = 20
+    T = 50000 # can be changed as you like 
+    save_dir = "/home/h/work/CMAB2/PICTURE"
+   
+    
+
+    bias = float(input("V="))
+    # bias = 0
+
+    if bias == 0:
+        mu_on = np.linspace(0,0.5,m)
+        mu_off =  mu_on
+        V1 = [bias] * m
+    else:
+        # bias generation, if bias choose this part
+        mu_on = np.linspace(bias,0.5,m)
+        while True:
+            V = [bias] * m # Bias bound
+            count = 0
+            for i in range(m):
+                if random.random() < 0.5:
+                    V[i] = -V[i]
+                    count += 1
+            if m / 2 - 5 <= count <= m / 2 + 5:
+                break
 
 
-    # # bias generation, if bias choose this part
-    # while True:
-    #     V = [bias] * m # Bias bound
-    #     count = 0
-    #     for i in range(m):
-    #         if random.random() < 0.5:
-    #             V[i] = -V[i]
-    #             count += 1
-    #     if m / 2 - 5 <= count <= m / 2 + 5:
-    #         break
+        mu_off =  mu_on + V 
+        V1 = [bias] * m
+ 
 
+    # num_each_arm = int(input("N ="))# also can choose to be 10,50 in the description of paper
+    num_each_arm = 200
 
-    # mu_off =  mu_on + V # Adjust : may fix
-    mu_off =  mu_on # Adjust : may fix
-
-    V1 = [bias] * m
+    # find a lower-bound for random
+    if num_each_arm == 10:
+        lower_bound = 0
+    elif num_each_arm == 50:
+        lower_bound = 30
+    else:
+        lower_bound = 50
+    filename = f"N={num_each_arm},V={bias}.pdf"
+    
 
 
     # 2.Find the oracle 
@@ -196,7 +213,9 @@ if __name__ == "__main__":
 
     # 3. do offline, online, hybrid-unbiased, hybrid-biased
 
-    args = (m,k,T,num_each_arm,reward_star,mu_off,mu_on,V1)
+    
+
+    args = (m,k,T,lower_bound,num_each_arm,reward_star,mu_off,mu_on,V1)
 
     tasks = [args] * num_trials
     num_processes = cpu_count() - 1 
@@ -230,22 +249,22 @@ if __name__ == "__main__":
     plt.plot(mean_gap_hybrid, color='red', label='Hybrid biased Algorithm')
 
     plt.fill_between(range(1,T+1),
-                 mean_gap_online - std_gap_online/np.sqrt(num_trials),
-                 mean_gap_online + std_gap_online/np.sqrt(num_trials),
+                 mean_gap_online - std_gap_online/np.sqrt(num_trials*10),
+                 mean_gap_online + std_gap_online/np.sqrt(num_trials*10),
                  color='blue',
                  alpha=0.3,
                  label='±1 Std Dev')
     
     plt.fill_between(range(1,T+1),
-                 mean_gap_online - std_gap_online/np.sqrt(num_trials),
-                 mean_gap_online + std_gap_online/np.sqrt(num_trials),
-                 color='blue',
+                 mean_gap_hybrid - std_gap_hybrid/np.sqrt(num_trials*10),
+                 mean_gap_hybrid + std_gap_hybrid/np.sqrt(num_trials*10),
+                 color='red',
                  alpha=0.3,
                  label='±1 Std Dev')
 
 
     plt.xlim(1,T)
-    plt.ylim(0,50)
+    plt.ylim(0,200)
     plt.xlabel("Time Steps (t)")
     plt.ylabel("Cumulative Regret")
     plt.title(f"V={bias},N={num_each_arm}")
@@ -254,4 +273,16 @@ if __name__ == "__main__":
     plt.legend(loc='upper left', frameon=True, shadow=True)
 
     plt.grid(True, linestyle='--', alpha=0.7)
+    save_path = os.path.join(save_dir, filename)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.savefig(save_path,format = 'pdf')
+    
     plt.show()
+
+
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Pool, cpu_count
+import os
+if __name__ == "__main__":
+    main()
+    
