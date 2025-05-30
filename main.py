@@ -11,7 +11,7 @@ def clear_variables():
         if name.startswith('__') or 
            callable(obj) or 
            isinstance(obj, type) or 
-           name in ['np', 'plt', 'heapq', 'random','clear_variables']  # Add your imports here
+           name in ['np', 'plt', 'heapq', 'random','clear_variables','os']  # Add your imports here
     }
     
     # Get all non-protected variables
@@ -158,17 +158,18 @@ def single_run(m, k, T, lower_bound,num_each_arm, reward_star, mu_off,mu_on, V1)
 def main():
     clear_variables()
     print("Clear up")
-    import os
+    # if want to load the data just use: np.load(filepath)
     m = 10
     k = 5
-    num_trials = 20
-    T = 50000 # can be changed as you like 
-    save_dir = "/home/h/work/CMAB2/PICTURE"
-   
-    
+    num_trials = 5
+    T = 500 # can be changed as you like 
+    '''
+    path to be chosen
+    save_dir = 
+    data_save = r
+    '''
 
     bias = float(input("V="))
-    # bias = 0
 
     if bias == 0:
         mu_on = np.linspace(0,0.5,m)
@@ -202,7 +203,7 @@ def main():
         lower_bound = 30
     else:
         lower_bound = 50
-    filename = f"N={num_each_arm},V={bias}.pdf"
+    picture_filename = f"N={num_each_arm},V={bias}.pdf"
     
 
 
@@ -225,11 +226,21 @@ def main():
     with Pool(processes=num_processes) as pool:
         results = pool.starmap(single_run, tasks)
 
+
     print("Parallel processing complete.")
   
 
 
-    gap_offline_all,gap_online_all, gap_hybrid_all = zip(*results) 
+    gap_offline_all,gap_online_all, gap_hybrid_all = zip(*results)
+    filepath_offlinedata = os.path.join(data_save, 'offline.npy')
+    filepath_onlinedata = os.path.join(data_save, 'online.npy')
+    filepath_hybriddata = os.path.join(data_save, 'hybrid.npy')
+
+
+    np.save(filepath_offlinedata, gap_offline_all)
+    np.save(filepath_onlinedata, gap_online_all)
+    np.save(filepath_hybriddata, gap_hybrid_all) 
+    
     gap_offline_all = np.vstack(gap_offline_all)
     gap_online_all = np.vstack(gap_online_all)        
     gap_hybrid_all = np.vstack(gap_hybrid_all)         
@@ -273,7 +284,7 @@ def main():
     plt.legend(loc='upper left', frameon=True, shadow=True)
 
     plt.grid(True, linestyle='--', alpha=0.7)
-    save_path = os.path.join(save_dir, filename)
+    save_path = os.path.join(save_dir, picture_filename)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     plt.savefig(save_path,format = 'pdf')
     
