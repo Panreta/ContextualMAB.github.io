@@ -301,3 +301,31 @@ if __name__ == "__main__":
 
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.show()
+
+
+      # gap_online_array = np.array(gap_online)
+    # np.save(os.path.join(save_dir, f'gap_online_{bias}.npy'), gap_online_array)
+    # print("Online is done!")
+    # gap_hybrid_biased_array = np.array(gap_hybrid_biased)
+    # np.save(os.path.join(save_dir, f'gap_hb_{bias}.npy'), gap_hybrid_biased_array)
+    # print("Hybrid-biased is done!")
+
+
+    # # 4.Plot
+    # plt.plot(gap_offline, color='green', label='CLCB')
+    # plt.plot(gap_online, color='blue', label='CUCB')
+    # plt.plot(gap_hybrid_biased, color='crimson', label='H-CUCB')
+
+    # plt.xlim(0,T)
+    # plt.ylim(0,300)
+    # plt.xlabel("Time Steps (t)")
+    # plt.ylabel("Cumulative Regret")
+    # plt.title(f"V={bias},N={num_each_arm}")
+
+    # # Customize the legend location and appearance
+    # plt.legend(loc='upper left', frameon=True, shadow=True)
+
+    # plt.grid(True, linestyle='--', alpha=0.7)
+    # plt.savefig(rf"D:\Context_Bandit\picture\{bias}.pdf", bbox_inches='tight', dpi=300)
+
+    # plt.show()
